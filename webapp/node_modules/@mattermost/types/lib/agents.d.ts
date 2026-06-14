@@ -1,0 +1,13 @@
+export type Agent = {
+    id: string;
+    displayName: string;
+    username: string;
+    service_id: string;
+    service_type: string;
+    is_default?: boolean;
+};
+export type LLMService = {
+    id: string;
+    name: string;
+    type: string;
+};

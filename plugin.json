@@ -1,0 +1,71 @@
+{
+    "id": "com.mattermost.clickup",
+    "name": "ClickUp",
+    "description": "Connect Mattermost channels to ClickUp. Create tasks, assign work, get notifications, and due-date reminders.",
+    "homepage_url": "https://github.com/devmatika/mattermost-plugin-clickup",
+    "support_url": "https://github.com/devmatika/mattermost-plugin-clickup/issues",
+    "version": "1.0.0",
+    "min_server_version": "11.0.0",
+    "server": {
+        "executables": {
+            "linux-amd64": "server/dist/plugin-linux-amd64",
+            "linux-arm64": "server/dist/plugin-linux-arm64",
+            "darwin-amd64": "server/dist/plugin-darwin-amd64",
+            "darwin-arm64": "server/dist/plugin-darwin-arm64",
+            "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+        }
+    },
+    "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+    },
+    "settings_schema": {
+        "header": "Configure your ClickUp Personal API Token from ClickUp Settings → Apps.",
+        "footer": "",
+        "settings": [
+            {
+                "key": "ClickUpAPIToken",
+                "display_name": "ClickUp API Token",
+                "type": "text",
+                "help_text": "Personal API token (pk_...) from ClickUp.",
+                "default": "",
+                "secret": true
+            },
+            {
+                "key": "ClickUpTeamID",
+                "display_name": "ClickUp Team ID",
+                "type": "text",
+                "help_text": "Numeric team/workspace ID used for webhooks and member lookup.",
+                "default": ""
+            },
+            {
+                "key": "DefaultListID",
+                "display_name": "Default List ID",
+                "type": "text",
+                "help_text": "Fallback ClickUp list ID when a channel is not linked.",
+                "default": ""
+            },
+            {
+                "key": "EnableReminders",
+                "display_name": "Enable Due-Date Reminders",
+                "type": "bool",
+                "help_text": "Send Mattermost reminders before tasks are due.",
+                "default": true
+            },
+            {
+                "key": "ReminderHoursBefore",
+                "display_name": "Reminder Hours Before Due",
+                "type": "number",
+                "help_text": "How many hours before the due date to send a reminder.",
+                "default": 24
+            },
+            {
+                "key": "WebhookSecret",
+                "display_name": "Webhook Secret",
+                "type": "generated",
+                "help_text": "Secret used to verify ClickUp webhook payloads.",
+                "regenerate_help_text": "Regenerating invalidates the existing ClickUp webhook. Re-activate the plugin to recreate it.",
+                "default": ""
+            }
+        ]
+    }
+}
