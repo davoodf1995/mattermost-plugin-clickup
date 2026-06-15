@@ -5,7 +5,7 @@
     "homepage_url": "https://github.com/devmatika/mattermost-plugin-clickup",
     "support_url": "https://github.com/devmatika/mattermost-plugin-clickup/issues",
     "icon_path": "assets/clickup.png",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "min_server_version": "11.0.0",
     "server": {
         "executables": {
