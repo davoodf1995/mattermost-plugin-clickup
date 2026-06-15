@@ -25,6 +25,11 @@ tests-e2e/cypress/videos
 .eslintcache
 report.xml
 
+webapp/node_modules/
+webapp/.npminstall
+webapp/dist/
+server/dist/
+
 webapp/src/manifest.js
 webapp/src/manifest.ts
 server/manifest.go
