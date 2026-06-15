@@ -1,7 +1,7 @@
 import {FormattedMessage} from 'react-intl';
 import {Client4} from 'mattermost-redux/client';
 import {getPluginURL} from './utils';
-import TasksRHS from './components/tasks_rhs';
+import TasksRHS, {createTasksRHS} from './components/tasks_rhs';
 
 const React = window.React;
 
@@ -37,6 +37,8 @@ export default class ClickUpPlugin {
             },
         );
 
+        const TasksRHSConnected = createTasksRHS(store);
+
         const rhs = registry.registerRightHandSidebarComponent({
             title: (
                 <FormattedMessage
@@ -44,12 +46,12 @@ export default class ClickUpPlugin {
                     defaultMessage='ClickUp Tasks'
                 />
             ),
-            component: TasksRHS,
+            component: TasksRHSConnected,
         });
 
-        const openTasks = () => {
-            const channelId = store.getState().entities.channels.currentChannelId;
-            if (channelId) {
+        const openTasks = (channelId) => {
+            const activeChannelId = channelId || store.getState().entities.channels.currentChannelId;
+            if (activeChannelId) {
                 store.dispatch(rhs.toggleRHSPlugin);
             }
         };

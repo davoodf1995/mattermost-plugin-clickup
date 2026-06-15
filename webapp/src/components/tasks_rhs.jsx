@@ -3,6 +3,71 @@ import {getPluginURL} from '../utils';
 const React = window.React;
 const PropTypes = window.PropTypes;
 
+export function createTasksRHS(store) {
+    return class TasksRHSConnected extends TasksRHS {
+        constructor(props) {
+            super(props);
+            this.store = store;
+            this.state = {
+                ...this.state,
+                channelId: store.getState().entities.channels.currentChannelId,
+            };
+        }
+
+        componentDidMount() {
+            this.unsubscribe = store.subscribe(this.onStoreChange);
+            this.loadTasks();
+        }
+
+        componentWillUnmount() {
+            if (this.unsubscribe) {
+                this.unsubscribe();
+            }
+        }
+
+        onStoreChange = () => {
+            const channelId = this.store.getState().entities.channels.currentChannelId;
+            if (channelId !== this.state.channelId) {
+                this.setState({channelId}, this.loadTasks);
+            }
+        };
+
+        loadTasks = async () => {
+            const channelId = this.state.channelId;
+            if (!channelId) {
+                this.setState({loading: false, error: 'No channel selected', tasks: []});
+                return;
+            }
+
+            this.setState({loading: true, error: ''});
+
+            try {
+                const response = await fetch(`${getPluginURL()}/api/tasks?channel_id=${channelId}`, {
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to load tasks');
+                }
+
+                const data = await response.json();
+                this.setState({
+                    loading: false,
+                    tasks: data.tasks || [],
+                    link: data.link || null,
+                });
+            } catch (error) {
+                this.setState({
+                    loading: false,
+                    error: error.message,
+                    tasks: [],
+                });
+            }
+        };
+    };
+}
+
 export default class TasksRHS extends React.PureComponent {
     static propTypes = {
         channelId: PropTypes.string,
