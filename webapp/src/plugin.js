@@ -1,7 +1,8 @@
 import {FormattedMessage} from 'react-intl';
+import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/channels';
 import {Client4} from 'mattermost-redux/client';
 import {getPluginURL} from './utils';
-import TasksRHS, {createTasksRHS} from './components/tasks_rhs';
+import {createTasksRHS, normalizeChannelId} from './components/tasks_rhs';
 
 const React = window.React;
 
@@ -16,6 +17,15 @@ const clickupIcon = (
 export default class ClickUpPlugin {
     initialize(registry, store) {
         const pluginURL = getPluginURL();
+        let pinnedChannelId = '';
+
+        const pinChannel = (channelLike) => {
+            const id = normalizeChannelId(channelLike) || getCurrentChannelId(store.getState()) || '';
+            if (id) {
+                pinnedChannelId = id;
+            }
+            return id;
+        };
 
         registry.registerPostDropdownMenuAction(
             <FormattedMessage
@@ -37,7 +47,7 @@ export default class ClickUpPlugin {
             },
         );
 
-        const TasksRHSConnected = createTasksRHS(store);
+        const TasksRHS = createTasksRHS(store, () => pinnedChannelId);
 
         const rhs = registry.registerRightHandSidebarComponent({
             title: (
@@ -46,19 +56,20 @@ export default class ClickUpPlugin {
                     defaultMessage='ClickUp Tasks'
                 />
             ),
-            component: TasksRHSConnected,
+            component: TasksRHS,
         });
 
-        const openTasks = (channelId) => {
-            const activeChannelId = channelId || store.getState().entities.channels.currentChannelId;
-            if (activeChannelId) {
-                store.dispatch(rhs.toggleRHSPlugin);
+        const openTasks = (channelLike) => {
+            const channelId = pinChannel(channelLike);
+            if (!channelId) {
+                return;
             }
+            store.dispatch(rhs.showRHSPlugin);
         };
 
         registry.registerAppBarComponent({
             iconUrl: `${pluginURL}/public/clickup.png`,
-            action: openTasks,
+            action: (channelLike) => openTasks(channelLike),
             tooltipText: (
                 <FormattedMessage
                     id='plugin.app_bar'
@@ -69,7 +80,8 @@ export default class ClickUpPlugin {
 
         registry.registerChannelHeaderButtonAction(
             clickupIcon,
-            openTasks,
+            (channel) => openTasks(channel),
+            'ClickUp Tasks',
             'ClickUp Tasks',
         );
     }
