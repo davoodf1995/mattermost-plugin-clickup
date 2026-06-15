@@ -54,12 +54,45 @@ https://app.clickup.com/12345678/v/li/901234567890
 3. Paste the List ID in **Default List ID** (used when a channel is not linked)
 4. Or link per-channel with `/clickup link 901234567890 Sprint Backlog`
 
-## Setup
+## Build and install
 
-1. Build: `make dist`
-2. Upload `dist/com.mattermost.clickup-1.0.0.tar.gz` via **System Console → Plugins**
-3. Enable the plugin and fill in API Token + Team ID
-4. In a channel: `/clickup link <list_id>`
+```bash
+make dist
+```
+
+Upload **`dist/com.mattermost.clickup-1.0.0.tar.gz`** via **System Console → Plugins → Upload**.
+
+This file is a **compiled plugin bundle** (binaries + webapp + `plugin.json`), not source code.
+
+### GitHub Releases (important)
+
+GitHub always adds **Source code (zip/tar.gz)** to every release. That archive is the **git repository** and cannot be uploaded to Mattermost.
+
+You need the **`com.mattermost.clickup-*.tar.gz`** from `make dist`, which contains:
+
+```
+com.mattermost.clickup/
+  plugin.json
+  server/dist/plugin-linux-amd64
+  server/dist/plugin-linux-arm64
+  ...
+  webapp/dist/main.js
+  assets/
+  public/
+```
+
+**Manual release:** create a tag → attach `dist/com.mattermost.clickup-*.tar.gz` under **Assets**.
+
+**Automatic release:** push a version tag and CI uploads the bundle:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The [release workflow](.github/workflows/release.yml) runs `make dist` and attaches the correct `.tar.gz` to the GitHub release.
+
+## Setup
 
 ## Slash commands
 
