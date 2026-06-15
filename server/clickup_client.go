@@ -169,13 +169,31 @@ func (c *ClickUpClient) AddComment(taskID, text string) error {
 }
 
 func (c *ClickUpClient) GetTeamMembers(teamID string) ([]ClickUpMember, error) {
-	var result struct {
+	var membersResult struct {
 		Members []ClickUpMember `json:"members"`
 	}
-	if err := c.request(http.MethodGet, "/team/"+teamID, nil, &result); err != nil {
+	if err := c.request(http.MethodGet, "/team/"+teamID+"/member", nil, &membersResult); err == nil && len(membersResult.Members) > 0 {
+		return membersResult.Members, nil
+	}
+
+	// Fallback for older API shapes: members nested under team.
+	var teamResult struct {
+		Team struct {
+			Members []ClickUpMember `json:"members"`
+		} `json:"team"`
+	}
+	if err := c.request(http.MethodGet, "/team/"+teamID, nil, &teamResult); err != nil {
 		return nil, err
 	}
-	return result.Members, nil
+	if len(teamResult.Team.Members) > 0 {
+		return teamResult.Team.Members, nil
+	}
+
+	if len(membersResult.Members) > 0 {
+		return membersResult.Members, nil
+	}
+
+	return nil, fmt.Errorf("no members returned for ClickUp team %s — verify Team ID in plugin settings", teamID)
 }
 
 func (c *ClickUpClient) CreateWebhook(teamID, endpoint, secret string) (string, error) {

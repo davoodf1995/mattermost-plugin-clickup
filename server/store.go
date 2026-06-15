@@ -53,6 +53,10 @@ func (p *Plugin) resolveListID(channelID string) (string, error) {
 	return "", errNoLinkedList
 }
 
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 func (p *Plugin) findClickUpUserByEmail(client *ClickUpClient, email string) (int, error) {
 	config := p.getConfiguration()
 	if config.ClickUpTeamID == "" {
@@ -64,14 +68,16 @@ func (p *Plugin) findClickUpUserByEmail(client *ClickUpClient, email string) (in
 		return 0, err
 	}
 
-	email = strings.ToLower(strings.TrimSpace(email))
+	email = normalizeEmail(email)
 	for _, member := range members {
-		if strings.ToLower(member.User.Email) == email {
+		if normalizeEmail(member.User.Email) == email {
 			return member.User.ID, nil
 		}
 	}
 
-	return 0, fmt.Errorf("no ClickUp user found for %s", email)
+	return 0, fmt.Errorf("no ClickUp user found for %s in team %s (%d members loaded). "+
+		"Check that your Mattermost email matches ClickUp and Team ID is correct",
+		email, config.ClickUpTeamID, len(members))
 }
 
 func (p *Plugin) findMattermostUserByEmail(email string) (*model.User, error) {
@@ -87,9 +93,9 @@ func (p *Plugin) findMattermostUserByEmail(email string) (*model.User, error) {
 		return nil, appErr
 	}
 
-	email = strings.ToLower(strings.TrimSpace(email))
+	email = normalizeEmail(email)
 	for _, u := range mmUsers {
-		if strings.ToLower(u.Email) == email {
+		if normalizeEmail(u.Email) == email {
 			return u, nil
 		}
 	}
