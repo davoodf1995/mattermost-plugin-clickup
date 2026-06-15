@@ -128,50 +128,68 @@ export function createTasksRHS(store, getPinnedChannelId) {
             const {loading, error, tasks, link} = this.state;
 
             return (
-                <div style={{padding: '12px'}}>
-                    <div style={{marginBottom: '12px'}}>
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        height: '100%',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <div style={{flexShrink: 0, padding: '12px 12px 0'}}>
                         <strong>ClickUp Tasks</strong>
                         {link?.list_id && (
                             <div style={{fontSize: '12px', opacity: 0.72}}>
                                 List: {link.list_name || link.list_id}
                             </div>
                         )}
+                        {!loading && !error && tasks.length > 0 && (
+                            <div style={{fontSize: '12px', opacity: 0.72, marginTop: '4px'}}>
+                                {tasks.length} open task{tasks.length === 1 ? '' : 's'}
+                            </div>
+                        )}
                     </div>
 
-                    {loading && <div>Loading...</div>}
-                    {!loading && error === 'no_channel' && (
-                        <div>
-                            <p>Open a <strong>channel</strong> first, then open ClickUp from the <strong>channel header</strong> (top of the chat).</p>
-                            <p style={{fontSize: '12px'}}>
-                                The app-bar icon needs an active channel. Link a list with <code>/clickup link &lt;url&gt;</code> inside that channel.
-                            </p>
-                        </div>
-                    )}
-                    {!loading && error && error !== 'no_channel' && (
-                        <div>
-                            <p>{error}</p>
-                            <p style={{fontSize: '12px'}}>
-                                Run <code>/clickup link &lt;url&gt;</code> in this channel, or <code>/clickup lists</code> to find list IDs.
-                            </p>
-                        </div>
-                    )}
-                    {!loading && !error && tasks.length > 0 && (
-                        <div style={{fontSize: '12px', opacity: 0.72, marginBottom: '8px'}}>
-                            {tasks.length} open task{tasks.length === 1 ? '' : 's'}
-                        </div>
-                    )}
-                    {!loading && !error && tasks.length === 0 && (
-                        <div>No open tasks in the linked list/view.</div>
-                    )}
-                    {!loading && !error && tasks.map((task) => this.renderTask(task))}
-
-                    <button
-                        className='btn btn-link'
-                        onClick={this.loadTasks}
-                        style={{marginTop: '8px'}}
+                    <div
+                        style={{
+                            flex: 1,
+                            minHeight: 0,
+                            overflowY: 'auto',
+                            padding: '12px',
+                        }}
                     >
-                        Refresh
-                    </button>
+                        {loading && <div>Loading...</div>}
+                        {!loading && error === 'no_channel' && (
+                            <div>
+                                <p>Open a <strong>channel</strong> first, then open ClickUp from the <strong>channel header</strong> (top of the chat).</p>
+                                <p style={{fontSize: '12px'}}>
+                                    The app-bar icon needs an active channel. Link a list with <code>/clickup link &lt;url&gt;</code> inside that channel.
+                                </p>
+                            </div>
+                        )}
+                        {!loading && error && error !== 'no_channel' && (
+                            <div>
+                                <p>{error}</p>
+                                <p style={{fontSize: '12px'}}>
+                                    Run <code>/clickup link &lt;url&gt;</code> in this channel, or <code>/clickup lists</code> to find list IDs.
+                                </p>
+                            </div>
+                        )}
+                        {!loading && !error && tasks.length === 0 && (
+                            <div>No open tasks in the linked list/view.</div>
+                        )}
+                        {!loading && !error && tasks.map((task) => this.renderTask(task))}
+                    </div>
+
+                    <div style={{flexShrink: 0, padding: '0 12px 12px'}}>
+                        <button
+                            className='btn btn-link'
+                            onClick={this.loadTasks}
+                            style={{padding: 0}}
+                        >
+                            Refresh
+                        </button>
+                    </div>
                 </div>
             );
         }
