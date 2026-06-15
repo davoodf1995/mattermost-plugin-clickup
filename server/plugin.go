@@ -13,8 +13,9 @@ type Plugin struct {
 	configurationLock sync.RWMutex
 	configuration     *configuration
 
-	clickup   *ClickUpClient
-	botUserID string
+	clickup      *ClickUpClient
+	botUserID    string
+	reminderStop chan struct{}
 }
 
 func (p *Plugin) getClickUpClient() (*ClickUpClient, error) {

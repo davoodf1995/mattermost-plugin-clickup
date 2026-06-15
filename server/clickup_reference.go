@@ -12,6 +12,13 @@ var (
 	clickUpViewURLPattern = regexp.MustCompile(`/v/l/([^/?#]+)`)
 )
 
+const (
+	clickUpParentTeam   = 7
+	clickUpParentSpace  = 4
+	clickUpParentFolder = 5
+	clickUpParentList   = 6
+)
+
 type ClickUpView struct {
 	ID     string          `json:"id"`
 	Name   string          `json:"name"`
@@ -87,6 +94,71 @@ func (c *ClickUpClient) GetList(listID string) (*ClickUpList, error) {
 	return &list, nil
 }
 
+func (c *ClickUpClient) GetFolderLists(folderID string) ([]ClickUpList, error) {
+	var result struct {
+		Lists []ClickUpList `json:"lists"`
+	}
+	path := fmt.Sprintf("/folder/%s/list?archived=false", folderID)
+	if err := c.request(http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Lists, nil
+}
+
+func (c *ClickUpClient) GetSpaceLists(spaceID string) ([]ClickUpList, error) {
+	var result struct {
+		Lists []ClickUpList `json:"lists"`
+	}
+	path := fmt.Sprintf("/space/%s/list?archived=false", spaceID)
+	if err := c.request(http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Lists, nil
+}
+
+func firstListID(lists []ClickUpList) (string, error) {
+	if len(lists) == 0 {
+		return "", fmt.Errorf("no lists found")
+	}
+	return lists[0].ID, nil
+}
+
+func (c *ClickUpClient) resolveListIDFromViewParent(parent ClickUpViewParent) (string, error) {
+	id := parentIDString(parent)
+	if id == "" {
+		return "", fmt.Errorf("view has no parent")
+	}
+
+	switch parent.Type {
+	case clickUpParentList, 0:
+		return id, nil
+	case clickUpParentFolder:
+		lists, err := c.GetFolderLists(id)
+		if err != nil {
+			return "", fmt.Errorf("could not load lists for folder %s: %w", id, err)
+		}
+		listID, err := firstListID(lists)
+		if err != nil {
+			return "", fmt.Errorf("folder %s has no lists to create tasks in", id)
+		}
+		return listID, nil
+	case clickUpParentSpace:
+		lists, err := c.GetSpaceLists(id)
+		if err != nil {
+			return "", fmt.Errorf("could not load lists for space %s: %w", id, err)
+		}
+		listID, err := firstListID(lists)
+		if err != nil {
+			return "", fmt.Errorf("space %s has no lists to create tasks in", id)
+		}
+		return listID, nil
+	case clickUpParentTeam:
+		return "", nil
+	default:
+		return "", fmt.Errorf("unsupported ClickUp view parent type %d", parent.Type)
+	}
+}
+
 // ResolveReference turns a ClickUp list URL, view URL, list ID, or view ID into list/view IDs for the API.
 func (c *ClickUpClient) ResolveReference(input string) (listID, viewID, displayName string, err error) {
 	ref := parseClickUpReference(input)
@@ -100,7 +172,7 @@ func (c *ClickUpClient) ResolveReference(input string) (listID, viewID, displayN
 			return "", "", "", fmt.Errorf("could not resolve ClickUp view %s: %w", ref, err)
 		}
 
-		listID, err := listIDFromViewParent(view.Parent)
+		listID, err := c.resolveListIDFromViewParent(view.Parent)
 		if err != nil {
 			return "", "", "", err
 		}
@@ -114,18 +186,4 @@ func (c *ClickUpClient) ResolveReference(input string) (listID, viewID, displayN
 	}
 
 	return ref, "", list.Name, nil
-}
-
-func listIDFromViewParent(parent ClickUpViewParent) (string, error) {
-	id := parentIDString(parent)
-	if id == "" {
-		return "", fmt.Errorf("view has no parent list")
-	}
-
-	// parent.type 6 = List per ClickUp API docs
-	if parent.Type != 0 && parent.Type != 6 {
-		return "", fmt.Errorf("this view is not attached to a list (parent type %d). Open the List in ClickUp and copy its URL", parent.Type)
-	}
-
-	return id, nil
 }

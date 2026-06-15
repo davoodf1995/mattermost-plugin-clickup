@@ -4,6 +4,19 @@ import (
 	"strings"
 )
 
+func isNumericListID(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Plugin) getSiteURL() string {
 	config := p.API.GetConfig()
 	if config == nil || config.ServiceSettings.SiteURL == nil {

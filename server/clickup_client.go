@@ -153,6 +153,9 @@ func (c *ClickUpClient) GetTasks(listID, viewID string, includeClosed bool) ([]C
 	if viewID != "" {
 		return c.GetViewTasks(viewID, includeClosed)
 	}
+	if listID == "" {
+		return nil, fmt.Errorf("no ClickUp list or view configured")
+	}
 	return c.GetListTasks(listID, includeClosed)
 }
 

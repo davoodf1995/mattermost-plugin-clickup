@@ -21,7 +21,15 @@ func (p *Plugin) registerCommands() error {
 	})
 }
 
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (resp *model.CommandResponse, appErr *model.AppError) {
+	defer func() {
+		if r := recover(); r != nil {
+			p.API.LogError("clickup command panic", "panic", fmt.Sprint(r), "command", args.Command)
+			resp = p.ephemeral(args.UserId, args.ChannelId, "ClickUp command failed unexpectedly. Check server logs.")
+			appErr = nil
+		}
+	}()
+
 	fields := strings.Fields(args.Command)
 	if len(fields) == 0 {
 		return p.helpResponse(), nil
@@ -87,8 +95,8 @@ func (p *Plugin) helpResponse() *model.CommandResponse {
 
 func (p *Plugin) handleLinkCommand(args *model.CommandArgs, rest []string) (*model.CommandResponse, *model.AppError) {
 	if len(rest) < 1 {
-		return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <list_url_or_id> [list_name]`\n\n"+
-			"Paste a ClickUp list URL (e.g. `https://app.clickup.com/2678792/v/l/5-19524559-1`) or a numeric list ID."), nil
+		return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <list_url_or_id> [name_or_list_id]`\n\n"+
+			"Paste a ClickUp URL or ID. For folder/space views, optionally pass a numeric list ID to choose where new tasks are created."), nil
 	}
 
 	client, err := p.getClickUpClient()
@@ -103,7 +111,17 @@ func (p *Plugin) handleLinkCommand(args *model.CommandArgs, rest []string) (*mod
 
 	listName := resolvedName
 	if len(rest) > 1 {
-		listName = strings.Join(rest[1:], " ")
+		if isNumericListID(rest[1]) {
+			if _, err := client.GetList(rest[1]); err != nil {
+				return p.ephemeral(args.UserId, args.ChannelId, "Invalid list ID: "+err.Error()), nil
+			}
+			listID = rest[1]
+			if len(rest) > 2 {
+				listName = strings.Join(rest[2:], " ")
+			}
+		} else {
+			listName = strings.Join(rest[1:], " ")
+		}
 	}
 
 	if err := p.setChannelLink(args.ChannelId, listID, viewID, listName); err != nil {
@@ -112,10 +130,18 @@ func (p *Plugin) handleLinkCommand(args *model.CommandArgs, rest []string) (*mod
 
 	label := listName
 	if label == "" {
-		label = listID
+		if listID != "" {
+			label = listID
+		} else {
+			label = viewID
+		}
 	}
 	if viewID != "" {
-		label = fmt.Sprintf("%s (list `%s`, view `%s`)", label, listID, viewID)
+		if listID != "" {
+			label = fmt.Sprintf("%s (list `%s`, view `%s`)", label, listID, viewID)
+		} else {
+			label = fmt.Sprintf("%s (view `%s` — read-only; add a list ID to create tasks)", label, viewID)
+		}
 	}
 
 	return &model.CommandResponse{

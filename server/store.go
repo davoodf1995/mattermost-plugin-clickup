@@ -37,24 +37,41 @@ func (p *Plugin) setChannelLink(channelID, listID, viewID, listName string) erro
 }
 
 func (p *Plugin) removeChannelLink(channelID string) error {
-	return p.API.KVDelete(kvChannelListPrefix + channelID)
+	key := kvChannelListPrefix + channelID
+	if data, appErr := p.API.KVGet(key); appErr != nil {
+		return appErr
+	} else if len(data) == 0 {
+		return nil
+	}
+	if appErr := p.API.KVDelete(key); appErr != nil {
+		return appErr
+	}
+	return nil
 }
 
 func (p *Plugin) resolveListID(channelID string) (string, error) {
 	listID, _, err := p.resolveTaskSource(channelID)
-	return listID, err
+	if err != nil {
+		return "", err
+	}
+	if listID == "" {
+		return "", fmt.Errorf("this channel is linked to a ClickUp view without a target list. Re-link with a list URL (`/v/li/...`) or add a numeric list ID: `/clickup link <view_url> <list_id>`")
+	}
+	return listID, nil
 }
 
 func (p *Plugin) resolveTaskSource(channelID string) (listID, viewID string, err error) {
 	link, linkErr := p.getChannelLink(channelID)
-	if linkErr == nil && link.ListID != "" {
+	if linkErr == nil {
 		if link.ViewID != "" {
 			return link.ListID, link.ViewID, nil
 		}
-		if looksLikeViewID(link.ListID) {
-			return p.resolveReference(link.ListID)
+		if link.ListID != "" {
+			if looksLikeViewID(link.ListID) {
+				return p.resolveReference(link.ListID)
+			}
+			return link.ListID, "", nil
 		}
-		return link.ListID, "", nil
 	}
 
 	config := p.getConfiguration()

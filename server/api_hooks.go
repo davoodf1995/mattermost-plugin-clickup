@@ -11,19 +11,38 @@ import (
 )
 
 func (p *Plugin) startReminderJob() {
+	stop := make(chan struct{})
+	p.reminderStop = stop
+
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				p.API.LogError("clickup reminder panic", "panic", fmt.Sprint(r))
+			}
+		}()
+
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
 		p.runReminderCheck()
 
-		for range ticker.C {
-			p.runReminderCheck()
+		for {
+			select {
+			case <-ticker.C:
+				p.runReminderCheck()
+			case <-stop:
+				return
+			}
 		}
 	}()
 }
 
-func (p *Plugin) stopReminderJob() {}
+func (p *Plugin) stopReminderJob() {
+	if p.reminderStop != nil {
+		close(p.reminderStop)
+		p.reminderStop = nil
+	}
+}
 
 func (p *Plugin) runReminderCheck() {
 	config := p.getConfiguration()
