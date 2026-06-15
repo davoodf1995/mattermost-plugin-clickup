@@ -39,7 +39,10 @@ func (p *Plugin) setConfiguration(configuration *configuration) {
 		if reflect.ValueOf(*configuration).NumField() == 0 {
 			return
 		}
-		panic("setConfiguration called with the existing configuration")
+		// Clone to avoid accidental shared mutation; never panic during config reload.
+		clone := configuration.Clone()
+		p.configuration = clone
+		return
 	}
 
 	p.configuration = configuration

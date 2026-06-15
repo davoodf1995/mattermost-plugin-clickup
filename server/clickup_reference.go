@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -27,13 +29,58 @@ type ClickUpView struct {
 }
 
 type ClickUpViewParent struct {
-	ID   interface{} `json:"id"` // API returns string or number
-	Type int         `json:"type"`
+	ID   interface{}   `json:"id"`
+	Type clickUpParentType `json:"type"`
+}
+
+type clickUpParentType int
+
+func (t *clickUpParentType) UnmarshalJSON(data []byte) error {
+	var i int
+	if err := json.Unmarshal(data, &i); err == nil {
+		*t = clickUpParentType(i)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		parsed, err := strconv.Atoi(strings.TrimSpace(s))
+		if err != nil {
+			return err
+		}
+		*t = clickUpParentType(parsed)
+		return nil
+	}
+	return fmt.Errorf("invalid parent type: %s", string(data))
 }
 
 type ClickUpList struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID   clickUpID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type clickUpID string
+
+func (id clickUpID) String() string {
+	return string(id)
+}
+
+func (id *clickUpID) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*id = clickUpID(s)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(data, &n); err == nil {
+		*id = clickUpID(n.String())
+		return nil
+	}
+	var i int64
+	if err := json.Unmarshal(data, &i); err == nil {
+		*id = clickUpID(fmt.Sprintf("%d", i))
+		return nil
+	}
+	return fmt.Errorf("invalid ClickUp id: %s", string(data))
 }
 
 func parseClickUpReference(input string) string {
@@ -73,17 +120,98 @@ func parentIDString(parent ClickUpViewParent) string {
 	}
 }
 
-func (c *ClickUpClient) GetView(viewID string) (*ClickUpView, error) {
-	var result struct {
-		View ClickUpView `json:"view"`
+func parseLinkRestFlags(rest []string) (ref, listIDOverride, listName string) {
+	if len(rest) == 0 {
+		return "", "", ""
 	}
-	if err := c.request(http.MethodGet, "/view/"+viewID, nil, &result); err != nil {
+	ref = rest[0]
+	var extras []string
+	for i := 1; i < len(rest); i++ {
+		token := rest[i]
+		lower := strings.ToLower(token)
+		if (lower == "--list_id" || lower == "--list-id") && i+1 < len(rest) {
+			listIDOverride = rest[i+1]
+			i++
+			continue
+		}
+		extras = append(extras, token)
+	}
+	if listIDOverride == "" && len(extras) == 1 && isNumericListID(extras[0]) {
+		listIDOverride = extras[0]
+	} else if len(extras) > 0 {
+		listName = strings.Join(extras, " ")
+	}
+	return ref, listIDOverride, listName
+}
+
+func linkCommandArgs(command string) []string {
+	ref, tail := parseLinkCommandInput(command)
+	if ref == "" {
+		return nil
+	}
+	return append([]string{ref}, tail...)
+}
+
+func parseLinkCommandInput(command string) (reference string, tail []string) {
+	command = strings.TrimSpace(command)
+	command = strings.TrimPrefix(command, "/")
+	if strings.HasPrefix(strings.ToLower(command), commandTrigger) {
+		command = strings.TrimSpace(command[len(commandTrigger):])
+	}
+	if !strings.HasPrefix(strings.ToLower(command), "link") {
+		return "", nil
+	}
+	command = strings.TrimSpace(command[4:])
+	command = strings.Trim(command, "<>")
+	if command == "" {
+		return "", nil
+	}
+
+	if idx := strings.Index(command, "clickup.com"); idx >= 0 {
+		start := idx
+		for start > 0 && command[start-1] != ' ' && command[start-1] != '\t' {
+			start--
+		}
+		end := idx + len("clickup.com")
+		for end < len(command) && command[end] != ' ' && command[end] != '\t' {
+			end++
+		}
+		reference = command[start:end]
+		rest := strings.TrimSpace(command[end:])
+		if rest != "" {
+			tail = strings.Fields(rest)
+		}
+		return reference, tail
+	}
+
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return "", nil
+	}
+	return parts[0], parts[1:]
+}
+
+func (c *ClickUpClient) GetView(viewID string) (*ClickUpView, error) {
+	var raw json.RawMessage
+	if err := c.request(http.MethodGet, "/view/"+viewID, nil, &raw); err != nil {
 		return nil, err
 	}
-	if result.View.ID == "" {
+
+	var wrapped struct {
+		View ClickUpView `json:"view"`
+	}
+	if err := json.Unmarshal(raw, &wrapped); err == nil && wrapped.View.ID != "" {
+		return &wrapped.View, nil
+	}
+
+	var direct ClickUpView
+	if err := json.Unmarshal(raw, &direct); err != nil {
+		return nil, err
+	}
+	if direct.ID == "" {
 		return nil, fmt.Errorf("view %s not found", viewID)
 	}
-	return &result.View, nil
+	return &direct, nil
 }
 
 func (c *ClickUpClient) GetList(listID string) (*ClickUpList, error) {
@@ -120,7 +248,7 @@ func firstListID(lists []ClickUpList) (string, error) {
 	if len(lists) == 0 {
 		return "", fmt.Errorf("no lists found")
 	}
-	return lists[0].ID, nil
+	return lists[0].ID.String(), nil
 }
 
 func (c *ClickUpClient) resolveListIDFromViewParent(parent ClickUpViewParent) (string, error) {
@@ -129,7 +257,7 @@ func (c *ClickUpClient) resolveListIDFromViewParent(parent ClickUpViewParent) (s
 		return "", fmt.Errorf("view has no parent")
 	}
 
-	switch parent.Type {
+	switch int(parent.Type) {
 	case clickUpParentList, 0:
 		return id, nil
 	case clickUpParentFolder:

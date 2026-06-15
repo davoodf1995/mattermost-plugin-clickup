@@ -110,12 +110,17 @@ export default class TasksRHS extends React.PureComponent {
                     <div>
                         <p>{error}</p>
                         <p style={{fontSize: '12px'}}>
-                            Link a list with <code>/clickup link &lt;list_id&gt;</code> or set a default list in plugin settings.
+                            Link a list with <code>/clickup link &lt;url&gt;</code> or run <code>/clickup lists</code> to find list IDs.
                         </p>
                     </div>
                 )}
+                {!loading && !error && tasks.length > 0 && (
+                    <div style={{fontSize: '12px', opacity: 0.72, marginBottom: '8px'}}>
+                        {tasks.length} open task{tasks.length === 1 ? '' : 's'}
+                    </div>
+                )}
                 {!loading && !error && tasks.length === 0 && (
-                    <div>No open tasks.</div>
+                    <div>No open tasks in the linked list/view.</div>
                 )}
                 {!loading && !error && tasks.map((task) => this.renderTask(task))}
 

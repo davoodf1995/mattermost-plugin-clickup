@@ -12,8 +12,17 @@ import (
 )
 
 type ClickUpClient struct {
-	token  string
-	client *http.Client
+	token   string
+	client  *http.Client
+	baseURL string
+}
+
+func (c *ClickUpClient) apiURL(path string) string {
+	base := clickUpAPIBase
+	if c != nil && c.baseURL != "" {
+		base = c.baseURL
+	}
+	return base + path
 }
 
 func NewClickUpClient(token string) *ClickUpClient {
@@ -87,7 +96,7 @@ func (c *ClickUpClient) request(method, path string, body interface{}, result in
 		reader = bytes.NewReader(data)
 	}
 
-	req, err := http.NewRequest(method, clickUpAPIBase+path, reader)
+	req, err := http.NewRequest(method, c.apiURL(path), reader)
 	if err != nil {
 		return err
 	}
@@ -127,26 +136,58 @@ func (c *ClickUpClient) GetTask(taskID string) (*ClickUpTask, error) {
 	return &task, nil
 }
 
+type paginatedTasksResponse struct {
+	Tasks    []ClickUpTask `json:"tasks"`
+	LastPage bool          `json:"last_page"`
+}
+
 func (c *ClickUpClient) GetListTasks(listID string, includeClosed bool) ([]ClickUpTask, error) {
-	path := fmt.Sprintf("/list/%s/task?include_closed=%t&subtasks=true", listID, includeClosed)
-	var result struct {
-		Tasks []ClickUpTask `json:"tasks"`
+	var all []ClickUpTask
+	for page := 0; ; page++ {
+		path := fmt.Sprintf("/list/%s/task?include_closed=%t&subtasks=true&include_timl=true&page=%d", listID, includeClosed, page)
+		var result paginatedTasksResponse
+		if err := c.request(http.MethodGet, path, nil, &result); err != nil {
+			return nil, err
+		}
+		all = append(all, result.Tasks...)
+		if result.LastPage || len(result.Tasks) == 0 {
+			break
+		}
 	}
-	if err := c.request(http.MethodGet, path, nil, &result); err != nil {
-		return nil, err
-	}
-	return result.Tasks, nil
+	return all, nil
 }
 
 func (c *ClickUpClient) GetViewTasks(viewID string, includeClosed bool) ([]ClickUpTask, error) {
-	path := fmt.Sprintf("/view/%s/task?include_closed=%t", viewID, includeClosed)
-	var result struct {
-		Tasks []ClickUpTask `json:"tasks"`
+	var all []ClickUpTask
+	for page := 0; ; page++ {
+		path := fmt.Sprintf("/view/%s/task?include_closed=%t&page=%d", viewID, includeClosed, page)
+		var result paginatedTasksResponse
+		if err := c.request(http.MethodGet, path, nil, &result); err != nil {
+			return nil, err
+		}
+		all = append(all, result.Tasks...)
+		if result.LastPage || len(result.Tasks) == 0 {
+			break
+		}
 	}
-	if err := c.request(http.MethodGet, path, nil, &result); err != nil {
-		return nil, err
+	return all, nil
+}
+
+func (c *ClickUpClient) GetTeamTasksForAssignee(teamID string, assigneeID int, includeClosed bool) ([]ClickUpTask, error) {
+	var all []ClickUpTask
+	for page := 0; ; page++ {
+		path := fmt.Sprintf("/team/%s/task?assignees[]=%d&include_closed=%t&subtasks=true&page=%d",
+			teamID, assigneeID, includeClosed, page)
+		var result paginatedTasksResponse
+		if err := c.request(http.MethodGet, path, nil, &result); err != nil {
+			return nil, err
+		}
+		all = append(all, result.Tasks...)
+		if result.LastPage || len(result.Tasks) == 0 {
+			break
+		}
 	}
-	return result.Tasks, nil
+	return all, nil
 }
 
 func (c *ClickUpClient) GetTasks(listID, viewID string, includeClosed bool) ([]ClickUpTask, error) {

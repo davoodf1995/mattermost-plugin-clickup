@@ -32,7 +32,10 @@ func (p *Plugin) ensureWebhook() error {
 		return err
 	}
 
-	return p.API.KVSet(kvWebhookID, []byte(webhookID))
+	if appErr := p.API.KVSet(kvWebhookID, []byte(webhookID)); appErr != nil {
+		return appErr
+	}
+	return nil
 }
 
 func (p *Plugin) removeWebhook() error {

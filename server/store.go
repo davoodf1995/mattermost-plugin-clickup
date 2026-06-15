@@ -33,7 +33,10 @@ func (p *Plugin) setChannelLink(channelID, listID, viewID, listName string) erro
 	if err != nil {
 		return err
 	}
-	return p.API.KVSet(kvChannelListPrefix+channelID, data)
+	if appErr := p.API.KVSet(kvChannelListPrefix+channelID, data); appErr != nil {
+		return appErr
+	}
+	return nil
 }
 
 func (p *Plugin) removeChannelLink(channelID string) error {

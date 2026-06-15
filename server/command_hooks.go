@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	"github.com/mattermost/mattermost/server/public/model"
@@ -24,7 +25,7 @@ func (p *Plugin) registerCommands() error {
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (resp *model.CommandResponse, appErr *model.AppError) {
 	defer func() {
 		if r := recover(); r != nil {
-			p.API.LogError("clickup command panic", "panic", fmt.Sprint(r), "command", args.Command)
+			p.API.LogError("clickup command panic", "panic", fmt.Sprint(r), "command", args.Command, "stack", string(debug.Stack()))
 			resp = p.ephemeral(args.UserId, args.ChannelId, "ClickUp command failed unexpectedly. Check server logs.")
 			appErr = nil
 		}
@@ -49,7 +50,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	case "help", "?":
 		return p.helpResponse(), nil
 	case "link":
-		return p.handleLinkCommand(args, fields[2:])
+		ref, tail := parseLinkCommandInput(args.Command)
+		if ref == "" {
+			return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <list_url_or_id> [name_or_list_id]`\n\n"+
+				"Paste a ClickUp URL or ID. For folder/space views, optionally pass a numeric list ID to choose where new tasks are created."), nil
+		}
+		return p.handleLinkCommand(args, append([]string{ref}, tail...))
 	case "unlink":
 		return p.handleUnlinkCommand(args)
 	case "tasks", "list":
@@ -66,6 +72,8 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 		return p.handleCommentCommand(args, fields[2:])
 	case "my":
 		return p.handleMyTasksCommand(args)
+	case "lists":
+		return p.handleListsCommand(args, fields[2:])
 	default:
 		return p.ephemeral(args.UserId, args.ChannelId, fmt.Sprintf("Unknown subcommand `%s`. Type `/clickup help`.", action)), nil
 	}
@@ -78,7 +86,8 @@ func (p *Plugin) helpResponse() *model.CommandResponse {
 			commandDescription + "\n\n" +
 			"| Command | Description |\n" +
 			"|:--|:--|\n" +
-			"| `/clickup link <list_url_or_id> [name]` | Link this channel to a ClickUp list |\n" +
+			"| `/clickup link <url> [--list_id ID]` | Link channel to a ClickUp list or view |\n" +
+			"| `/clickup lists [search]` | Find numeric list IDs in your workspace |\n" +
 			"| `/clickup unlink` | Remove channel link |\n" +
 			"| `/clickup tasks` | Show open tasks for the linked list |\n" +
 			"| `/clickup create` | Open task creation dialog |\n" +
@@ -86,7 +95,7 @@ func (p *Plugin) helpResponse() *model.CommandResponse {
 			"| `/clickup assign <task_id> @user` | Assign a task |\n" +
 			"| `/clickup done <task_id>` | Mark task complete |\n" +
 			"| `/clickup comment <task_id> <text>` | Add a comment |\n" +
-			"| `/clickup my` | Show tasks assigned to you |\n" +
+			"| `/clickup my` | Show all tasks assigned to you in ClickUp |\n" +
 			"| `/clickup help` | Show this help |\n\n" +
 			"**UI:** Use the ClickUp icon in the app bar or channel header for the task panel. " +
 			"Use **Create ClickUp Task** in the message menu (⋯).",
@@ -95,8 +104,8 @@ func (p *Plugin) helpResponse() *model.CommandResponse {
 
 func (p *Plugin) handleLinkCommand(args *model.CommandArgs, rest []string) (*model.CommandResponse, *model.AppError) {
 	if len(rest) < 1 {
-		return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <list_url_or_id> [name_or_list_id]`\n\n"+
-			"Paste a ClickUp URL or ID. For folder/space views, optionally pass a numeric list ID to choose where new tasks are created."), nil
+		return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <url> [--list_id ID]`\n\n"+
+			"Use `/clickup lists` to find numeric list IDs."), nil
 	}
 
 	client, err := p.getClickUpClient()
@@ -104,24 +113,22 @@ func (p *Plugin) handleLinkCommand(args *model.CommandArgs, rest []string) (*mod
 		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
 	}
 
-	listID, viewID, resolvedName, err := client.ResolveReference(rest[0])
+	ref, listIDOverride, listNameOverride := parseLinkRestFlags(rest)
+
+	listID, viewID, resolvedName, err := client.ResolveReference(ref)
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, "Failed to resolve ClickUp list: "+err.Error()), nil
 	}
 
 	listName := resolvedName
-	if len(rest) > 1 {
-		if isNumericListID(rest[1]) {
-			if _, err := client.GetList(rest[1]); err != nil {
-				return p.ephemeral(args.UserId, args.ChannelId, "Invalid list ID: "+err.Error()), nil
-			}
-			listID = rest[1]
-			if len(rest) > 2 {
-				listName = strings.Join(rest[2:], " ")
-			}
-		} else {
-			listName = strings.Join(rest[1:], " ")
+	if listIDOverride != "" {
+		if _, err := client.GetList(listIDOverride); err != nil {
+			return p.ephemeral(args.UserId, args.ChannelId, "Invalid list ID: "+err.Error()), nil
 		}
+		listID = listIDOverride
+	}
+	if listNameOverride != "" {
+		listName = listNameOverride
 	}
 
 	if err := p.setChannelLink(args.ChannelId, listID, viewID, listName); err != nil {
@@ -356,6 +363,11 @@ func (p *Plugin) handleCommentCommand(args *model.CommandArgs, rest []string) (*
 }
 
 func (p *Plugin) handleMyTasksCommand(args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+	config := p.getConfiguration()
+	if config.ClickUpTeamID == "" {
+		return p.ephemeral(args.UserId, args.ChannelId, "Set **ClickUp Team ID** in plugin settings first."), nil
+	}
+
 	client, err := p.getClickUpClient()
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
@@ -371,33 +383,23 @@ func (p *Plugin) handleMyTasksCommand(args *model.CommandArgs) (*model.CommandRe
 		return p.ephemeral(args.UserId, args.ChannelId, "Could not match your Mattermost email to a ClickUp user. "+err.Error()), nil
 	}
 
-	listID, viewID, err := p.resolveTaskSource(args.ChannelId)
-	if err != nil {
-		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
-	}
-
-	tasks, err := client.GetTasks(listID, viewID, false)
+	tasks, err := client.GetTeamTasksForAssignee(config.ClickUpTeamID, clickupID, false)
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, "Failed to fetch tasks: "+err.Error()), nil
 	}
 
-	var mine []ClickUpTask
-	for _, task := range tasks {
-		for _, assignee := range task.Assignees {
-			if assignee.ID == clickupID {
-				mine = append(mine, task)
-				break
-			}
-		}
-	}
-
-	if len(mine) == 0 {
-		return p.ephemeral(args.UserId, args.ChannelId, "You have no open tasks in this list."), nil
+	if len(tasks) == 0 {
+		return p.ephemeral(args.UserId, args.ChannelId, "You have no open tasks assigned in this ClickUp workspace."), nil
 	}
 
 	var b strings.Builder
-	b.WriteString("#### Your tasks\n")
-	for _, task := range mine {
+	b.WriteString(fmt.Sprintf("#### Your tasks (%d)\n", len(tasks)))
+	limit := 25
+	for i, task := range tasks {
+		if i >= limit {
+			b.WriteString(fmt.Sprintf("\n_...and %d more in ClickUp_", len(tasks)-limit))
+			break
+		}
 		due := formatDueDate(task.DueDate)
 		line := fmt.Sprintf("- [%s](%s) — **%s**", task.Name, task.URL, taskStatusLabel(task))
 		if due != "" {

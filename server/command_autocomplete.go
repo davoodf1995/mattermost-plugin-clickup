@@ -2,15 +2,16 @@ package main
 
 import "github.com/mattermost/mattermost/server/public/model"
 
-const commandDescription = "Available commands: link, unlink, tasks, create, task, assign, done, comment, my, help"
+const commandDescription = "Available commands: link, unlink, lists, tasks, create, task, assign, done, comment, my, help"
 
 func getAutocompleteData() *model.AutocompleteData {
 	clickup := model.NewAutocompleteData(commandTrigger, "[command]", commandDescription)
 
-	link := model.NewAutocompleteData("link", "<list_url_or_id> [name]", "Link this channel to a ClickUp list (URL or ID)")
-	link.AddNamedTextArgument("list_id", "ClickUp list ID (numeric)", "901234567890", "", true)
-	link.AddNamedTextArgument("name", "Optional list label", "Sprint Backlog", "", false)
+	link := model.NewAutocompleteData("link", "<url> [list_id]", "Link channel to a ClickUp list or view URL")
 	clickup.AddCommand(link)
+
+	lists := model.NewAutocompleteData("lists", "[space|folder|search]", "Browse ClickUp spaces, folders, and list IDs")
+	clickup.AddCommand(lists)
 
 	unlink := model.NewAutocompleteData("unlink", "", "Remove the ClickUp list link from this channel")
 	clickup.AddCommand(unlink)
@@ -39,7 +40,7 @@ func getAutocompleteData() *model.AutocompleteData {
 	comment.AddTextArgument("Comment text", "Updated in Mattermost", "")
 	clickup.AddCommand(comment)
 
-	my := model.NewAutocompleteData("my", "", "Show tasks assigned to you")
+	my := model.NewAutocompleteData("my", "", "Show all tasks assigned to you in ClickUp")
 	clickup.AddCommand(my)
 
 	help := model.NewAutocompleteData("help", "", "Show ClickUp slash command help")
