@@ -4,6 +4,7 @@
     "description": "Connect Mattermost channels to ClickUp. Create tasks, assign work, get notifications, and due-date reminders.",
     "homepage_url": "https://github.com/devmatika/mattermost-plugin-clickup",
     "support_url": "https://github.com/devmatika/mattermost-plugin-clickup/issues",
+    "icon_path": "assets/clickup.png",
     "version": "1.0.0",
     "min_server_version": "11.0.0",
     "server": {
@@ -19,14 +20,14 @@
         "bundle_path": "webapp/dist/main.js"
     },
     "settings_schema": {
-        "header": "Configure your ClickUp Personal API Token from ClickUp Settings → Apps.",
+        "header": "Get your ClickUp credentials from [ClickUp Settings → Apps](https://app.clickup.com/settings/apps). See the plugin README for step-by-step instructions.",
         "footer": "",
         "settings": [
             {
                 "key": "ClickUpAPIToken",
                 "display_name": "ClickUp API Token",
                 "type": "text",
-                "help_text": "Personal API token (pk_...) from ClickUp.",
+                "help_text": "Personal API token starting with pk_. ClickUp → avatar (top-left) → Settings → Apps → API Token → Generate.",
                 "default": "",
                 "secret": true
             },
@@ -34,14 +35,14 @@
                 "key": "ClickUpTeamID",
                 "display_name": "ClickUp Team ID",
                 "type": "text",
-                "help_text": "Numeric team/workspace ID used for webhooks and member lookup.",
+                "help_text": "Numeric workspace ID from your ClickUp URL: https://app.clickup.com/12345678/... → Team ID is 12345678.",
                 "default": ""
             },
             {
                 "key": "DefaultListID",
                 "display_name": "Default List ID",
                 "type": "text",
-                "help_text": "Fallback ClickUp list ID when a channel is not linked.",
+                "help_text": "Optional fallback list ID. Open a ClickUp list in the browser — the URL contains /li/901234567890 and 901234567890 is the List ID.",
                 "default": ""
             },
             {

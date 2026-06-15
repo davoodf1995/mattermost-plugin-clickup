@@ -5,6 +5,14 @@ import TasksRHS from './components/tasks_rhs';
 
 const React = window.React;
 
+const clickupIcon = (
+    <img
+        src={`${getPluginURL()}/public/clickup.png`}
+        alt='ClickUp'
+        style={{width: '24px', height: '24px'}}
+    />
+);
+
 export default class ClickUpPlugin {
     initialize(registry, store) {
         const pluginURL = getPluginURL();
@@ -39,14 +47,16 @@ export default class ClickUpPlugin {
             component: TasksRHS,
         });
 
+        const openTasks = () => {
+            const channelId = store.getState().entities.channels.currentChannelId;
+            if (channelId) {
+                store.dispatch(rhs.toggleRHSPlugin);
+            }
+        };
+
         registry.registerAppBarComponent({
-            iconUrl: `${pluginURL}/public/clickup-icon.svg`,
-            action: () => {
-                const channelId = store.getState().entities.channels.currentChannelId;
-                if (channelId) {
-                    store.dispatch(rhs.toggleRHSPlugin);
-                }
-            },
+            iconUrl: `${pluginURL}/public/clickup.png`,
+            action: openTasks,
             tooltipText: (
                 <FormattedMessage
                     id='plugin.app_bar'
@@ -56,8 +66,8 @@ export default class ClickUpPlugin {
         });
 
         registry.registerChannelHeaderButtonAction(
-            <i className='icon fa fa-check-square-o'/>,
-            () => store.dispatch(rhs.toggleRHSPlugin),
+            clickupIcon,
+            openTasks,
             'ClickUp Tasks',
         );
     }

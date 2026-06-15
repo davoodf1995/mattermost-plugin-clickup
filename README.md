@@ -9,38 +9,61 @@ Connect Mattermost channels to ClickUp lists, create and manage tasks, get real-
 ## Features
 
 - **Channel ↔ List linking** — map each Mattermost channel to a ClickUp list
+- **Slash command autocomplete** — nested subcommands like `/clickup create`, `/clickup tasks`, …
 - **Create tasks** — slash commands, interactive dialog, or from any message
 - **Assign tasks** — match Mattermost users to ClickUp members by email
-- **Task panel** — view open tasks in the right-hand sidebar (app bar / channel header)
-- **Webhooks** — ClickUp events posted to linked channels (created, assigned, status, due date, comments)
+- **Task panel** — ClickUp icon in app bar and channel header
+- **Webhooks** — ClickUp events posted to linked channels
 - **Due-date reminders** — DM and channel alerts before tasks are due
-- **Mobile-friendly** — slash commands and dialogs work on mobile ([Mattermost mobile plugin docs](https://developers.mattermost.com/integrate/plugins/components/mobile/))
+- **Mobile-friendly** — slash commands and dialogs work on mobile
+
+## Where to get ClickUp credentials
+
+### 1. ClickUp API Token (`pk_...`)
+
+1. Open [ClickUp](https://app.clickup.com)
+2. Click your **avatar** (bottom-left) → **Settings**
+3. Go to **Apps** (or open [Settings → Apps](https://app.clickup.com/settings/apps))
+4. Scroll to **API Token** → click **Generate**
+5. Copy the token (starts with `pk_`)
+6. Paste it in **System Console → Plugins → ClickUp → ClickUp API Token**
+
+### 2. ClickUp Team ID
+
+Your Team ID is the **first number** in the ClickUp URL after you open a workspace:
+
+```
+https://app.clickup.com/12345678/home
+                          ^^^^^^^^
+                          Team ID = 12345678
+```
+
+Paste `12345678` in **ClickUp Team ID** in plugin settings.
+
+### 3. Default List ID (optional)
+
+1. Open the ClickUp **List** you want to use in the browser
+2. Look at the URL:
+
+```
+https://app.clickup.com/12345678/v/li/901234567890
+                                    ^^^^^^^^^^^^^
+                                    List ID = 901234567890
+```
+
+3. Paste the List ID in **Default List ID** (used when a channel is not linked)
+4. Or link per-channel with `/clickup link 901234567890 Sprint Backlog`
 
 ## Setup
 
-### 1. ClickUp credentials
-
-1. In ClickUp go to **Settings → Apps** and create a **Personal API Token** (`pk_...`).
-2. Find your **Team ID** from the URL: `https://app.clickup.com/{team_id}/...`
-3. Find a **List ID** from the list URL or API.
-
-### 2. Install plugin
-
 1. Build: `make dist`
 2. Upload `dist/com.mattermost.clickup-1.0.0.tar.gz` via **System Console → Plugins**
-3. Enable the plugin and configure:
-   - **ClickUp API Token**
-   - **ClickUp Team ID**
-   - **Default List ID** (optional fallback)
-   - **Enable Due-Date Reminders**
+3. Enable the plugin and fill in API Token + Team ID
+4. In a channel: `/clickup link <list_id>`
 
-### 3. Link a channel
+## Slash commands
 
-```
-/clickup link 123456789 My Sprint List
-```
-
-## Commands
+Type `/clickup` and Mattermost shows nested subcommands with the ClickUp icon (like the [Google Drive plugin](https://github.com/mattermost/mattermost-plugin-google-drive)).
 
 | Command | Description |
 |---------|-------------|
@@ -48,8 +71,8 @@ Connect Mattermost channels to ClickUp lists, create and manage tasks, get real-
 | `/clickup link <list_id> [name]` | Link channel to a ClickUp list |
 | `/clickup unlink` | Remove channel link |
 | `/clickup tasks` | List open tasks |
-| `/clickup task <name>` | Create a task |
 | `/clickup create` | Open task creation dialog |
+| `/clickup task <name>` | Create a task |
 | `/clickup assign <task_id> @user` | Assign task |
 | `/clickup done <task_id>` | Mark task complete |
 | `/clickup comment <task_id> <text>` | Add comment |
@@ -58,18 +81,18 @@ Connect Mattermost channels to ClickUp lists, create and manage tasks, get real-
 ### Task options
 
 ```
-/clickup task Fix login bug --assign @john --due 2026-06-20 --priority high
+/clickup task Fix login --assign @john --due 2026-06-20 --priority high
 ```
 
 ## UI shortcuts
 
-- **App bar** — ClickUp icon opens the task panel
-- **Channel header** — checklist icon opens tasks for this channel
-- **Message menu (⋯)** — **Create ClickUp Task** from any message
+- **App bar** — ClickUp logo opens the task panel
+- **Channel header** — ClickUp logo opens tasks for this channel
+- **Message menu (⋯)** — **Create ClickUp Task**
 
 ## User matching
 
-Assignees are matched by **email** between Mattermost and ClickUp workspace members. Ensure users share the same email in both systems.
+Assignees are matched by **email** between Mattermost and ClickUp. Ensure users share the same email in both systems.
 
 ## Development
 

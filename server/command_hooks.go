@@ -10,11 +10,14 @@ import (
 
 func (p *Plugin) registerCommands() error {
 	return p.API.RegisterCommand(&model.Command{
-		Trigger:          commandTrigger,
-		AutoComplete:     true,
-		AutoCompleteDesc: "Manage ClickUp tasks from Mattermost",
-		AutoCompleteHint: "[help|link|unlink|tasks|task|assign|done|comment|my|create]",
-		DisplayName:      "ClickUp integration",
+		Trigger:              commandTrigger,
+		AutoComplete:         true,
+		AutoCompleteDesc:     commandDescription,
+		AutoCompleteHint:     "[command]",
+		AutocompleteData:     getAutocompleteData(),
+		AutocompleteIconData: getAutocompleteIconData(),
+		IconURL:              p.getCommandIconURL(),
+		DisplayName:          "ClickUp",
 	})
 }
 
@@ -63,21 +66,22 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 func (p *Plugin) helpResponse() *model.CommandResponse {
 	return &model.CommandResponse{
 		ResponseType: model.CommandResponseTypeEphemeral,
-		Text: "#### ClickUp commands\n" +
+		Text: "###### ClickUp — Slash Command Help\n" +
+			commandDescription + "\n\n" +
 			"| Command | Description |\n" +
-			"|---|---|\n" +
+			"|:--|:--|\n" +
 			"| `/clickup link <list_id> [name]` | Link this channel to a ClickUp list |\n" +
 			"| `/clickup unlink` | Remove channel link |\n" +
 			"| `/clickup tasks` | Show open tasks for the linked list |\n" +
-			"| `/clickup task <name>` | Create a task (add `--assign @user --due 2026-06-20 --priority high`) |\n" +
 			"| `/clickup create` | Open task creation dialog |\n" +
+			"| `/clickup task <name>` | Create a task (`--assign @user --due 2026-06-20 --priority high`) |\n" +
 			"| `/clickup assign <task_id> @user` | Assign a task |\n" +
 			"| `/clickup done <task_id>` | Mark task complete |\n" +
 			"| `/clickup comment <task_id> <text>` | Add a comment |\n" +
-			"| `/clickup my` | Show tasks assigned to you |\n\n" +
-			"**Tips:** Use the channel header ClickUp icon for a task panel. " +
-			"Use **Create ClickUp Task** on any message. " +
-			"Configure API token and Team ID in System Console → Plugins.",
+			"| `/clickup my` | Show tasks assigned to you |\n" +
+			"| `/clickup help` | Show this help |\n\n" +
+			"**UI:** Use the ClickUp icon in the app bar or channel header for the task panel. " +
+			"Use **Create ClickUp Task** in the message menu (⋯).",
 	}
 }
 
