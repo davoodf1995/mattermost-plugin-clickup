@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <rect width="48" height="48" rx="10" fill="#ffffff"/>
+  <defs>
+    <linearGradient id="cu-top" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF02F0"/>
+      <stop offset="50%" stop-color="#FF6D00"/>
+      <stop offset="100%" stop-color="#FFD600"/>
+    </linearGradient>
+    <linearGradient id="cu-bottom" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7B68EE"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#cu-top)" d="M10 12 L24 6 L38 12 L34 18 L24 14 L14 18 Z"/>
+  <path fill="url(#cu-bottom)" d="M12 28 C12 28 18 36 24 36 C30 36 36 28 36 28 L32 32 C32 32 28 36 24 36 C20 36 16 32 16 32 Z"/>
+</svg>

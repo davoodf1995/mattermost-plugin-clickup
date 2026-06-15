@@ -15,7 +15,7 @@ func (p *Plugin) registerCommands() error {
 		AutoCompleteDesc:     commandDescription,
 		AutoCompleteHint:     "[command]",
 		AutocompleteData:     getAutocompleteData(),
-		AutocompleteIconData: getAutocompleteIconData(),
+		AutocompleteIconData: p.getAutocompleteIconData(),
 		IconURL:              p.getCommandIconURL(),
 		DisplayName:          "ClickUp",
 	})
