@@ -47,12 +47,12 @@ func (p *Plugin) runReminderCheck() {
 		}
 
 		channelID := key[len(kvChannelListPrefix):]
-		link, err := p.getChannelLink(channelID)
+		listID, viewID, err := p.resolveTaskSource(channelID)
 		if err != nil {
 			continue
 		}
 
-		tasks, err := client.GetListTasks(link.ListID, false)
+		tasks, err := client.GetTasks(listID, viewID, false)
 		if err != nil {
 			continue
 		}
@@ -133,13 +133,13 @@ func (p *Plugin) handleAPITasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	listID, err := p.resolveListID(channelID)
+	listID, viewID, err := p.resolveTaskSource(channelID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	tasks, err := client.GetListTasks(listID, false)
+	tasks, err := client.GetTasks(listID, viewID, false)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return

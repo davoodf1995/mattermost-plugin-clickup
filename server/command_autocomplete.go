@@ -7,7 +7,7 @@ const commandDescription = "Available commands: link, unlink, tasks, create, tas
 func getAutocompleteData() *model.AutocompleteData {
 	clickup := model.NewAutocompleteData(commandTrigger, "[command]", commandDescription)
 
-	link := model.NewAutocompleteData("link", "<list_id> [name]", "Link this channel to a ClickUp list")
+	link := model.NewAutocompleteData("link", "<list_url_or_id> [name]", "Link this channel to a ClickUp list (URL or ID)")
 	link.AddNamedTextArgument("list_id", "ClickUp list ID (numeric)", "901234567890", "", true)
 	link.AddNamedTextArgument("name", "Optional list label", "Sprint Backlog", "", false)
 	clickup.AddCommand(link)

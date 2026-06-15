@@ -138,6 +138,24 @@ func (c *ClickUpClient) GetListTasks(listID string, includeClosed bool) ([]Click
 	return result.Tasks, nil
 }
 
+func (c *ClickUpClient) GetViewTasks(viewID string, includeClosed bool) ([]ClickUpTask, error) {
+	path := fmt.Sprintf("/view/%s/task?include_closed=%t", viewID, includeClosed)
+	var result struct {
+		Tasks []ClickUpTask `json:"tasks"`
+	}
+	if err := c.request(http.MethodGet, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Tasks, nil
+}
+
+func (c *ClickUpClient) GetTasks(listID, viewID string, includeClosed bool) ([]ClickUpTask, error) {
+	if viewID != "" {
+		return c.GetViewTasks(viewID, includeClosed)
+	}
+	return c.GetListTasks(listID, includeClosed)
+}
+
 type CreateTaskRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description,omitempty"`

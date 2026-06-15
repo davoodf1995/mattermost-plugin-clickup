@@ -70,7 +70,7 @@ func (p *Plugin) helpResponse() *model.CommandResponse {
 			commandDescription + "\n\n" +
 			"| Command | Description |\n" +
 			"|:--|:--|\n" +
-			"| `/clickup link <list_id> [name]` | Link this channel to a ClickUp list |\n" +
+			"| `/clickup link <list_url_or_id> [name]` | Link this channel to a ClickUp list |\n" +
 			"| `/clickup unlink` | Remove channel link |\n" +
 			"| `/clickup tasks` | Show open tasks for the linked list |\n" +
 			"| `/clickup create` | Open task creation dialog |\n" +
@@ -87,22 +87,35 @@ func (p *Plugin) helpResponse() *model.CommandResponse {
 
 func (p *Plugin) handleLinkCommand(args *model.CommandArgs, rest []string) (*model.CommandResponse, *model.AppError) {
 	if len(rest) < 1 {
-		return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <list_id> [list_name]`"), nil
+		return p.ephemeral(args.UserId, args.ChannelId, "Usage: `/clickup link <list_url_or_id> [list_name]`\n\n"+
+			"Paste a ClickUp list URL (e.g. `https://app.clickup.com/2678792/v/l/5-19524559-1`) or a numeric list ID."), nil
 	}
 
-	listID := rest[0]
-	listName := ""
+	client, err := p.getClickUpClient()
+	if err != nil {
+		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
+	}
+
+	listID, viewID, resolvedName, err := client.ResolveReference(rest[0])
+	if err != nil {
+		return p.ephemeral(args.UserId, args.ChannelId, "Failed to resolve ClickUp list: "+err.Error()), nil
+	}
+
+	listName := resolvedName
 	if len(rest) > 1 {
 		listName = strings.Join(rest[1:], " ")
 	}
 
-	if err := p.setChannelLink(args.ChannelId, listID, listName); err != nil {
+	if err := p.setChannelLink(args.ChannelId, listID, viewID, listName); err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, "Failed to save link: "+err.Error()), nil
 	}
 
-	label := listID
-	if listName != "" {
-		label = listName + " (" + listID + ")"
+	label := listName
+	if label == "" {
+		label = listID
+	}
+	if viewID != "" {
+		label = fmt.Sprintf("%s (list `%s`, view `%s`)", label, listID, viewID)
 	}
 
 	return &model.CommandResponse{
@@ -124,12 +137,12 @@ func (p *Plugin) handleTasksCommand(args *model.CommandArgs) (*model.CommandResp
 		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
 	}
 
-	listID, err := p.resolveListID(args.ChannelId)
+	listID, viewID, err := p.resolveTaskSource(args.ChannelId)
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
 	}
 
-	tasks, err := client.GetListTasks(listID, false)
+	tasks, err := client.GetTasks(listID, viewID, false)
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, "Failed to fetch tasks: "+err.Error()), nil
 	}
@@ -332,12 +345,12 @@ func (p *Plugin) handleMyTasksCommand(args *model.CommandArgs) (*model.CommandRe
 		return p.ephemeral(args.UserId, args.ChannelId, "Could not match your Mattermost email to a ClickUp user. "+err.Error()), nil
 	}
 
-	listID, err := p.resolveListID(args.ChannelId)
+	listID, viewID, err := p.resolveTaskSource(args.ChannelId)
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, err.Error()), nil
 	}
 
-	tasks, err := client.GetListTasks(listID, false)
+	tasks, err := client.GetTasks(listID, viewID, false)
 	if err != nil {
 		return p.ephemeral(args.UserId, args.ChannelId, "Failed to fetch tasks: "+err.Error()), nil
 	}

@@ -10,6 +10,7 @@ import (
 
 type channelLink struct {
 	ListID   string `json:"list_id"`
+	ViewID   string `json:"view_id,omitempty"`
 	ListName string `json:"list_name,omitempty"`
 }
 
@@ -26,8 +27,8 @@ func (p *Plugin) getChannelLink(channelID string) (*channelLink, error) {
 	return &link, nil
 }
 
-func (p *Plugin) setChannelLink(channelID, listID, listName string) error {
-	link := channelLink{ListID: listID, ListName: listName}
+func (p *Plugin) setChannelLink(channelID, listID, viewID, listName string) error {
+	link := channelLink{ListID: listID, ViewID: viewID, ListName: listName}
 	data, err := json.Marshal(link)
 	if err != nil {
 		return err
@@ -40,17 +41,38 @@ func (p *Plugin) removeChannelLink(channelID string) error {
 }
 
 func (p *Plugin) resolveListID(channelID string) (string, error) {
-	link, err := p.getChannelLink(channelID)
-	if err == nil && link.ListID != "" {
-		return link.ListID, nil
+	listID, _, err := p.resolveTaskSource(channelID)
+	return listID, err
+}
+
+func (p *Plugin) resolveTaskSource(channelID string) (listID, viewID string, err error) {
+	link, linkErr := p.getChannelLink(channelID)
+	if linkErr == nil && link.ListID != "" {
+		if link.ViewID != "" {
+			return link.ListID, link.ViewID, nil
+		}
+		if looksLikeViewID(link.ListID) {
+			return p.resolveReference(link.ListID)
+		}
+		return link.ListID, "", nil
 	}
 
 	config := p.getConfiguration()
-	if config.DefaultListID != "" {
-		return config.DefaultListID, nil
+	if config.DefaultListID == "" {
+		return "", "", errNoLinkedList
 	}
 
-	return "", errNoLinkedList
+	return p.resolveReference(config.DefaultListID)
+}
+
+func (p *Plugin) resolveReference(input string) (listID, viewID string, err error) {
+	client, err := p.getClickUpClient()
+	if err != nil {
+		return "", "", err
+	}
+
+	listID, viewID, _, err = client.ResolveReference(input)
+	return listID, viewID, err
 }
 
 func normalizeEmail(email string) string {
